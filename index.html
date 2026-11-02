@@ -67,6 +67,9 @@ details{background:var(--card);border:1px solid var(--line);border-radius:6px;pa
 .stk{display:flex;height:20px;border-radius:5px;overflow:hidden;background:var(--line);margin-bottom:12px}.stk i{display:block}
 .lg{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:13px}.lg i{width:12px;height:12px;border-radius:3px;opacity:.7}
 .note{background:var(--bg);border-left:4px solid var(--dl);padding:8px 12px;border-radius:4px}
+.bd{font:700 12px Barlow,sans-serif;font-style:normal;letter-spacing:.06em;color:#fff;padding:2px 8px;border-radius:4px;margin-right:8px;display:inline-block}
+.bd.live{background:#c2413a}.bd.done{background:#59656d}.bd.soon{background:#2a8a4a}
+@media(prefers-reduced-motion:no-preference){.bd.live{animation:pl 1.4s infinite}}@keyframes pl{50%{opacity:.55}}
 </style>
 </head>
 <body>
@@ -171,12 +174,12 @@ async function games(){
  const rs=document.getElementById("rg");rs.value=RG;rs.onchange=e=>{RG=e.target.value;games()};
  const gl=document.getElementById("gl");
  try{
-  const t0=Date.now(),rg=RG=="p"?ymd(new Date(t0-12096e5))+"-"+ymd(new Date(t0)):ymd(new Date(t0))+"-"+ymd(new Date(t0+12096e5));let j,er;
-  for(const qs of ["?dates="+rg+"&limit=100","?dates="+rg,""]){try{j=await jget(lg+"/scoreboard"+qs);break}catch(x){er=x}}
-  if(!j)throw er;
-  const ev=(j.events||[]).sort((a,b)=>(a.date<b.date?-1:1)*(RG=="p"?-1:1));
-  gl.innerHTML=ev.length?ev.map(e=>{const c=e.competitions[0].competitors,h=c.find(x=>x.homeAway=="home")||c[0],a=c.find(x=>x.homeAway=="away")||c[1];
-   return`<button class="g" data-g="${E(e.id)}"><span><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
+  const t0=Date.now(),sg=RG=="p"?-1:1,mp={};let er,ok=0;
+  await Promise.all(Array.from({length:15},(_,i)=>i).map(async i=>{const dd=ymd(new Date(t0+sg*i*864e5));try{const r=await jget(lg+"/scoreboard?dates="+dd+"&limit=100").catch(()=>jget(lg+"/scoreboard?dates="+dd));ok++;(r.events||[]).forEach(e=>mp[e.id]=e)}catch(x){er=x}}));
+  if(!ok)throw er;
+  const ev=Object.values(mp).sort((a,b)=>(a.date<b.date?-1:1)*sg);
+  gl.innerHTML=ev.length?ev.map(e=>{const tp=e.status.type,bd=tp.state=="in"?["live","LIVE"]:(tp.completed||tp.state=="post")?["done","COMPLETED"]:["soon","SOON"],c=e.competitions[0].competitors,h=c.find(x=>x.homeAway=="home")||c[0],a=c.find(x=>x.homeAway=="away")||c[1];
+   return`<button class="g" data-g="${E(e.id)}"><span><i class="bd ${bd[0]}">${bd[1]}</i><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
  }catch(x){gl.textContent="Could not load games ("+x.message+"). If this keeps happening, deploy worker.js and paste its URL into WORKER."}
 }
 const sc=c=>{const s=c.score,v=s&&typeof s=="object"?(s.value!=null?s.value:s.displayValue):s;return v==null||v===""?NaN:+v};
