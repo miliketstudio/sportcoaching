@@ -129,7 +129,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b)
 document.addEventListener("input",e=>{if(e.target.id=="q"){q=e.target.value;head();body()}});
 document.addEventListener("change",e=>{const i=e.target.dataset.i;if(i){S[i]=e.target.checked;save();const l=e.target.closest("label");l.className=S[i]?"d":"";head()}});
 
-const WORKER="";/* paste your Cloudflare Worker URL here after deploying worker.js */
+const WORKER="https://wandering-darkness-8f29.miliketstudio.workers.dev/";/* paste your Cloudflare Worker URL here after deploying worker.js */
 const LG=[["Basketball","basketball/nba","NBA"],["Basketball","basketball/wnba","WNBA"],["Football","soccer/eng.1","Premier League"],["Football","soccer/esp.1","La Liga"],["Football","soccer/ger.1","Bundesliga"],["Football","soccer/ita.1","Serie A"],["Football","soccer/fra.1","Ligue 1"],["Football","soccer/usa.1","MLS"],["Football","soccer/uefa.champions","Champions League"],["Rugby","rugby/267979","Premiership"],["Rugby","rugby/270557","United Rugby Championship"],["Rugby","rugby/270559","Top 14"],["Rugby","rugby/180659","Six Nations"],["Rugby","rugby/242041","Super Rugby Pacific"],["Rugby","rugby/244293","Rugby Championship"]];
 let lg=LG[0][1];
 const api=p=>WORKER?WORKER+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
