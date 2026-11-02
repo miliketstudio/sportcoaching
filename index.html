@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Master Coach Developer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500&display=swap">
+<style>
+:root{--bg:#f3f5f2;--card:#fff;--ink:#16212b;--mute:#5d6b76;--line:#d5dcd8;--sh:#3f6f96;--bb:#c46d12;--fb:#2f8a4b;--rg:#b23a52;--fl:#6b5aa6;--co:#8a6d1c}
+@media(prefers-color-scheme:dark){:root{--bg:#121c25;--card:#1a2733;--ink:#eaf0ec;--mute:#9bacb8;--line:#2c3c4a;--sh:#7da4c4;--bb:#e8892b;--fb:#5bc07a;--rg:#e0687f;--fl:#a393e0;--co:#d4b04a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,system-ui,sans-serif}
+header{padding:28px 20px 12px;max-width:1100px;margin:auto}
+h1{font:700 clamp(34px,6vw,56px)/1 "Barlow Condensed",sans-serif;margin:0 0 6px;letter-spacing:.01em}
+header p{margin:0;color:var(--mute);max-width:60ch}
+.bar{height:8px;background:var(--line);border-radius:4px;margin:16px 0 4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ink);width:0;transition:width .3s}
+.sub{font-size:14px;color:var(--mute)}
+nav{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 20px}
+.nin{max-width:1100px;margin:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+nav button{font:600 17px "Barlow Condensed",sans-serif;border:2px solid var(--c);color:var(--c);background:transparent;padding:6px 12px;border-radius:6px;cursor:pointer}
+nav button[aria-pressed=true]{background:var(--c);color:var(--bg)}
+nav button:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+nav input{flex:1;min-width:150px;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+main{max-width:1100px;margin:auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+section{background:var(--card);border:1px solid var(--line);border-left:6px solid var(--c);border-radius:6px;padding:14px 16px}
+h2{font:700 22px "Barlow Condensed",sans-serif;margin:0 0 8px}
+h2 small{font:400 13px Barlow,sans-serif;color:var(--mute);margin-left:6px}
+label{display:flex;gap:9px;align-items:flex-start;padding:3px 0;cursor:pointer;font-size:15px}
+input[type=checkbox]{margin-top:5px;accent-color:var(--c)}
+label.d span{color:var(--mute);text-decoration:line-through}
+.tag{font-size:12px;color:var(--mute)}
+.empty{grid-column:1/-1;color:var(--mute)}
+footer{max-width:1100px;margin:auto;padding:0 20px 40px;color:var(--mute);font-size:14px}
+
+:root{--gm:#0f7c8a}
+@media(prefers-color-scheme:dark){:root{--gm:#4cc3d1}}
+select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink)}
+.gl{display:grid;gap:8px;margin-top:12px}
+.g{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;text-align:left;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 12px;cursor:pointer}
+.g:focus-visible{outline:3px solid var(--ink)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+h3{font:600 17px "Barlow Condensed",sans-serif;margin:12px 0 4px}
+.sq{display:flex;flex-wrap:wrap;gap:4px 12px}.sq a{color:var(--ink);font-size:14px}
+</style>
+</head>
+<body>
+<header>
+<h1>Master Coach Developer</h1>
+<p>Everything a coach should know and track in basketball, football and rugby. Tick each item as you learn it or start tracking it.</p>
+<div class="bar"><i id="pb"></i></div>
+<div class="sub" id="pt"></div>
+</header>
+<nav><div class="nin" id="tabs"></div></nav>
+<main id="out"></main>
+<footer>Progress is saved in this browser. Metrics that need event or tracking data (xG, ruck speed, GPS) need a data provider; this site is the framework to plan them.</footer>
+<script>
+const T={
+gm:["Games",[]],
+sh:["Shared Core",[
+["Team foundations","Offensive and defensive rating;Team ratings (Elo, SRS);Tempo and style profile;Luck check: results vs expected"],
+["Expected-value models","Chance quality (xG, expected shot value);Possession value (xT, VAEP);Expected points by field position;Win probability"],
+["Space and movement","Spacing and compactness;Pitch or floor control;Off-ball movement;Gravity;Formation and role detection"],
+["Transitions","Regain-to-shot speed;Recovery shape after losing the ball;Scoring within X seconds of a turnover;Turnover quality"],
+["Set situations","Routine library;Taker and target profiles;Marking systems;Yield per attempt"],
+["Pressure and intensity","Press height and triggers;Forced errors;Line speed and closeouts"],
+["Player impact","On/off splits;Role-adjusted percentiles;Adjusted plus-minus;Age curves;League-strength adjustment"],
+["Physical and welfare","High-speed running and sprints;Match load over 7 and 14 days;HRV, wellness, sleep;Injury and return-to-play;Contact and head-injury load"],
+["Game management","Substitution timing;Timeouts and scheme changes;Clutch decisions;Scoring windows"],
+["Discipline and officials","Fouls and penalties by type and zone;Referee tendencies;Rule changes and trials"]]],
+bb:["Basketball",[
+["Team","Pace;Offensive, defensive and net rating per 100;Four Factors;Strength of schedule"],
+["Shooting","TS%;eFG%;Expected shot value;7 shot zones;Shot-clock phases;Catch-and-shoot vs pull-up;Defender distance;Shot-making over expectation;FT% as skill signal"],
+["Play types","Isolation;Pick-and-roll ball handler;Pick-and-roll roll man;Post-up;Spot-up and off-screen;Hand-offs and cuts;Transition vs half-court;After-timeout and out-of-bounds plays;Set-play library"],
+["Defence","Drop, switch, hedge, blitz, ice;Up-to-touch and screen navigation;Zone and press;Rim protection and deterrence;DFG% and matchup difficulty;Closeouts and help;Rebounding and box-outs;Forced turnovers"],
+["Tendencies","Drive direction;Step-back and pull-up direction;Foul drawing and and-1s;Pass-first vs shoot-first;Self-created vs assisted shots;Release time"],
+["Lineups","Usage and AST/TO;Potential assists;Five-man and two-man data;Starter and bench staggering;Foul-trouble management"]]],
+fb:["Football",[
+["Attacking","xG and non-penalty xG;xA and key passes;xT and possession value;xG chain and buildup;PSxG;Shot- and goal-creating actions;Finishing over expected;Cutbacks vs crosses;Switches of play;Progressive and line-breaking passes"],
+["Build-up and control","Field tilt;Build-up structures (3-2-5, box midfield);Goalkeeper distribution;Press resistance;Half-space usage;Sequence types: direct, build-up, counter;Passing vectors"],
+["Defending","PPDA;Defensive line height;Counter-press;Rest defence;Press height (high, mid, low block);Offside trap;Duels by zone;Errors leading to shots;xG against by cause"],
+["Set pieces","Corner routines;Free kicks;Throw-ins;Zonal vs man marking;Second-ball recovery;Penalty-taker and goalkeeper tendencies"],
+["Goalkeeping","Goals prevented (PSxG minus goals);Save % by zone;Cross claiming;Sweeping;Distribution"],
+["Players and game","1v1 direction and efficiency;Preferred foot;Scanning and decisions;Red-card and first-goal effects;Scoring by 15-minute period;Knockout-tie dynamics"]]],
+rg:["Rugby",[
+["Attack","Carries and post-contact metres;Clean breaks and defenders beaten;Offloads;Phases and points per phase;Points per 22 entry;Attacking shapes (pods);Strike plays;Kick returns"],
+["Breakdown","Ruck speed (under 3s, 3 to 6s, over 6s);Ruck retention;Jackal wins;Cleanout quality;Players committed;Counter-rucking;Penalties at the ruck"],
+["Defence","Tackle completion and dominant tackles;Missed tackles by cause;Blitz, drift, fold, up-and-in;Line speed and integrity;Turnovers won;Back-field cover"],
+["Set pieces","Scrum: win %, penalties, go-forward;Lineout: win %, steals, calls;Maul: metres and try yield;Restarts and 22 dropouts;Penalty choices by zone"],
+["Kicking","Box, contestable, cross-field, grubber, exit and 50:22 kicks;Hang time and regain %;Chase quality;Territory trade;Goal kicking by distance and conditions"],
+["Positions","Props and hooker;Locks;Back row;Scrum-half;Fly-half;Centres;Wings and fullback"],
+["Game management","Bench split and finisher impact;Cards and points in the 20 minutes after;Last-10-minute decisions;Weather and wet-ball effects;Welfare and head-injury protocols"]]],
+fl:["Filters and Rigour",[
+["Filters for every metric","Home or away and travel;Game state: leading, tied, trailing;Rest days and match load;Lineups and availability;Head-to-head;Opponent-adjusted;Competition, stakes, league strength;Weather and surface;Referee;Coach tenure;Time window"],
+["Analytical rigour","Sample-size and confidence flags;Skill vs luck (what regresses to the mean);Normalise per 100, per 90 or per 80;Document every metric definition;Separate descriptive, predictive and prescriptive;Check data licensing early;Protect biometric and injury data;Let coaches tag their own language"],
+["Site features","Vulnerability engine;Matchup matchmaker;Natural-language queries;Shot charts, heatmaps, pass and kick maps;One-page opposition report;Clip links behind every insight"]]],
+co:["Coach Skills",[
+["Beyond the stats","Game model and principles;Training design and periodisation;Skill acquisition;Strength, conditioning and recovery;Sleep and nutrition"],
+["People and club","Psychology and pressure;Leadership and culture;Communication;Staff management;Safeguarding and welfare"],
+["Knowledge","Video analysis;Data literacy;Recruitment;Youth development;Rules, regulations and salary or financial caps"],
+["Coaching cycle","Pre-match: opposition report;In-game: adjustments and substitutions;Post-game: review and feedback;Season: development and load"]]]
+};
+const C={gm:"--gm",sh:"--sh",bb:"--bb",fb:"--fb",rg:"--rg",fl:"--fl",co:"--co"};
+let S={},tab="gm",q="";
+try{S=JSON.parse(localStorage.getItem("mcd")||"{}")}catch(e){}
+const save=()=>{try{localStorage.setItem("mcd",JSON.stringify(S))}catch(e){}};
+const keys=k=>T[k][1].flatMap(c=>c[1].split(";").map(s=>k+"|"+c[0]+"|"+s));
+const cnt=k=>{const a=keys(k);return[a.filter(x=>S[x]).length,a.length]};
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+function head(){
+ let d=0,t=0;
+ document.getElementById("tabs").innerHTML=Object.keys(T).map(k=>{const[a,b]=cnt(k);d+=a;t+=b;
+  return`<button style="--c:var(${C[k]})" data-t="${k}" aria-pressed="${!q&&tab==k}">${T[k][0]}${b?` ${a}/${b}`:""}</button>`}).join("")+`<input id="q" type="search" placeholder="Search all metrics" aria-label="Search all metrics" value="${esc(q)}">`;
+ document.getElementById("pb").style.width=(100*d/t)+"%";
+ document.getElementById("pt").textContent=d+" of "+t+" items ticked";
+ const i=document.getElementById("q");if(q){i.focus();i.setSelectionRange(q.length,q.length)}
+}
+function body(){
+ if(tab=="gm"&&!q){games();return}
+ const ks=q?Object.keys(T):[tab];let h="";
+ ks.forEach(k=>T[k][1].forEach(c=>{
+  const it=c[1].split(";").filter(s=>!q||(s+c[0]+T[k][0]).toLowerCase().includes(q.toLowerCase()));
+  if(!it.length)return;
+  h+=`<section style="--c:var(${C[k]})"><h2>${c[0]}${q?`<small>${T[k][0]}</small>`:""}</h2>`+it.map(s=>{const id=k+"|"+c[0]+"|"+s;
+   return`<label class="${S[id]?"d":""}"><input type="checkbox" data-i="${esc(id)}" ${S[id]?"checked":""}><span>${esc(s)}</span></label>`}).join("")+"</section>"}));
+ document.getElementById("out").innerHTML=h||'<p class="empty">No metrics match that search.</p>';
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b){tab=b.dataset.t;q="";head();body()}});
+document.addEventListener("input",e=>{if(e.target.id=="q"){q=e.target.value;head();body()}});
+document.addEventListener("change",e=>{const i=e.target.dataset.i;if(i){S[i]=e.target.checked;save();const l=e.target.closest("label");l.className=S[i]?"d":"";head()}});
+
+const WORKER="";/* paste your Cloudflare Worker URL here after deploying worker.js */
+const LG=[["Basketball","basketball/nba","NBA"],["Basketball","basketball/wnba","WNBA"],["Football","soccer/eng.1","Premier League"],["Football","soccer/esp.1","La Liga"],["Football","soccer/ger.1","Bundesliga"],["Football","soccer/ita.1","Serie A"],["Football","soccer/fra.1","Ligue 1"],["Football","soccer/usa.1","MLS"],["Football","soccer/uefa.champions","Champions League"],["Rugby","rugby/267979","Premiership"],["Rugby","rugby/270557","United Rugby Championship"],["Rugby","rugby/270559","Top 14"],["Rugby","rugby/180659","Six Nations"],["Rugby","rugby/242041","Super Rugby Pacific"],["Rugby","rugby/244293","Rugby Championship"]];
+let lg=LG[0][1];
+const api=p=>WORKER?WORKER+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
+const jget=async p=>{const r=await fetch(api(p));if(!r.ok)throw new Error("HTTP "+r.status);return r.json()};
+const ymd=d=>d.toISOString().slice(0,10).replace(/-/g,"");
+const E=x=>esc(String(x==null?"":x));
+const sec=(t,b)=>`<section style="--c:var(--gm)"><h2>${t}</h2>${b}</section>`;
+async function games(){
+ const o=document.getElementById("out");
+ o.innerHTML=`<section style="--c:var(--gm);grid-column:1/-1"><h2>Upcoming games</h2><select id="lg" aria-label="League">`+LG.map(l=>`<option value="${l[1]}"${l[1]==lg?" selected":""}>${l[0]}: ${l[2]}</option>`).join("")+`</select> <span class="tag">Next 14 days. Pick a game to see both teams.</span><div id="gl" class="gl">Loading games...</div></section><div id="gd" class="two" style="grid-column:1/-1"></div>`;
+ document.getElementById("lg").onchange=e=>{lg=e.target.value;games()};
+ const gl=document.getElementById("gl");
+ try{
+  const j=await jget(lg+"/scoreboard?limit=100&dates="+ymd(new Date())+"-"+ymd(new Date(Date.now()+12096e5)));
+  const ev=(j.events||[]).sort((a,b)=>a.date<b.date?-1:1);
+  gl.innerHTML=ev.length?ev.map(e=>{const c=e.competitions[0].competitors,h=c.find(x=>x.homeAway=="home")||c[0],a=c.find(x=>x.homeAway=="away")||c[1];
+   return`<button class="g" data-g="${E(e.id)}"><span><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
+ }catch(x){gl.textContent="Could not load games ("+x.message+"). If this keeps happening, deploy worker.js and paste its URL into WORKER."}
+}
+async function detail(id){
+ const d=document.getElementById("gd");d.innerHTML="Loading match...";d.scrollIntoView({behavior:"smooth"});
+ try{
+  const s=await jget(lg+"/summary?event="+id),cs=s.header.competitions[0].competitors;
+  const tm=await Promise.all(cs.map(c=>jget(lg+"/teams/"+c.team.id).catch(()=>({}))));
+  const ro=await Promise.all(cs.map(c=>jget(lg+"/teams/"+c.team.id+"/roster").catch(()=>({}))));
+  const by=(a,i)=>(a||[]).find(t=>t.team&&t.team.id==cs[i].team.id)||{};
+  d.innerHTML=cs.map((c,i)=>{
+   const st=(((tm[i].team||{}).record||{}).items||[]).flatMap(x=>x.stats||[]).slice(0,16).map(x=>`<div>${E(x.name)}: <b>${E(x.value)}</b></div>`).join("");
+   const f5=by(s.lastFiveGames,i).events||[],ld=by(s.leaders,i).leaders||[],inj=by(s.injuries,i).injuries||[],bx=by(s.boxscore&&s.boxscore.teams,i).statistics||[];
+   const ath=(ro[i].athletes||[]).flatMap(a=>a.items||[a]);
+   return sec(E(c.team.displayName)+` <small>${E(c.homeAway)}</small>`,
+    (st?`<h3>Season record and stats</h3>${st}`:"")+
+    (f5.length?`<h3>Last 5</h3><div>${f5.map(x=>E(x.gameResult)).join(" ")}</div>`:"")+
+    (ld.length?`<h3>Leaders</h3>`+ld.map(x=>{const l=(x.leaders||[])[0]||{};return`<div>${E(x.displayName)}: ${E((l.athlete||{}).displayName)} ${E(l.displayValue)}</div>`}).join(""):"")+
+    (inj.length?`<h3>Injuries</h3>`+inj.map(x=>`<div>${E((x.athlete||{}).displayName)}, ${E(x.status)}</div>`).join(""):"")+
+    (bx.length?`<h3>Match stats</h3>`+bx.map(x=>`<div>${E(x.label)}: <b>${E(x.displayValue)}</b></div>`).join(""):"")+
+    (ath.length?`<h3>Squad (${ath.length})</h3><div class="sq">`+ath.map(p=>`<a href="${E(((p.links||[])[0]||{}).href||"#")}" target="_blank" rel="noopener">${E(p.displayName||p.fullName)}${p.position?` <span class="tag">${E(p.position.abbreviation)}</span>`:""}</a>`).join("")+"</div>":""))}).join("");
+ }catch(x){d.textContent="Could not load this match ("+x.message+")."}
+}
+document.addEventListener("click",e=>{const g=e.target.closest("[data-g]");if(g)detail(g.dataset.g)});
+head();body();
+</script>
+</body>
+</html>
