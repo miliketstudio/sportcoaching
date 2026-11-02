@@ -42,6 +42,13 @@ select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6
 .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
 h3{font:600 17px "Barlow Condensed",sans-serif;margin:12px 0 4px}
 .sq{display:flex;flex-wrap:wrap;gap:4px 12px}.sq a{color:var(--ink);font-size:14px}
+
+:root{--dl:#b0392f}
+@media(prefers-color-scheme:dark){:root{--dl:#f07a6e}}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+td:first-child,th:first-child{text-align:left}
+.th{font:600 14px Barlow,sans-serif;background:none;border:0;color:var(--ink);cursor:pointer;padding:0}
 </style>
 </head>
 <body>
@@ -57,6 +64,7 @@ h3{font:600 17px "Barlow Condensed",sans-serif;margin:12px 0 4px}
 <script>
 const T={
 gm:["Games",[]],
+dl:["Data Lab",[]],
 sh:["Shared Core",[
 ["Team foundations","Offensive and defensive rating;Team ratings (Elo, SRS);Tempo and style profile;Luck check: results vs expected"],
 ["Expected-value models","Chance quality (xG, expected shot value);Possession value (xT, VAEP);Expected points by field position;Win probability"],
@@ -100,7 +108,7 @@ co:["Coach Skills",[
 ["Knowledge","Video analysis;Data literacy;Recruitment;Youth development;Rules, regulations and salary or financial caps"],
 ["Coaching cycle","Pre-match: opposition report;In-game: adjustments and substitutions;Post-game: review and feedback;Season: development and load"]]]
 };
-const C={gm:"--gm",sh:"--sh",bb:"--bb",fb:"--fb",rg:"--rg",fl:"--fl",co:"--co"};
+const C={gm:"--gm",dl:"--dl",sh:"--sh",bb:"--bb",fb:"--fb",rg:"--rg",fl:"--fl",co:"--co"};
 let S={},tab="gm",q="";
 try{S=JSON.parse(localStorage.getItem("mcd")||"{}")}catch(e){}
 const save=()=>{try{localStorage.setItem("mcd",JSON.stringify(S))}catch(e){}};
@@ -117,6 +125,7 @@ function head(){
 }
 function body(){
  if(tab=="gm"&&!q){games();return}
+ if(tab=="dl"&&!q){lab();return}
  const ks=q?Object.keys(T):[tab];let h="";
  ks.forEach(k=>T[k][1].forEach(c=>{
   const it=c[1].split(";").filter(s=>!q||(s+c[0]+T[k][0]).toLowerCase().includes(q.toLowerCase()));
@@ -132,7 +141,7 @@ document.addEventListener("change",e=>{const i=e.target.dataset.i;if(i){S[i]=e.t
 const WORKER="https://wandering-darkness-8f29.miliketstudio.workers.dev/";/* paste your Cloudflare Worker URL here after deploying worker.js */
 const LG=[["Basketball","basketball/nba","NBA"],["Basketball","basketball/wnba","WNBA"],["Football","soccer/eng.1","Premier League"],["Football","soccer/esp.1","La Liga"],["Football","soccer/ger.1","Bundesliga"],["Football","soccer/ita.1","Serie A"],["Football","soccer/fra.1","Ligue 1"],["Football","soccer/usa.1","MLS"],["Football","soccer/uefa.champions","Champions League"],["Rugby","rugby/267979","Premiership"],["Rugby","rugby/270557","United Rugby Championship"],["Rugby","rugby/270559","Top 14"],["Rugby","rugby/180659","Six Nations"],["Rugby","rugby/242041","Super Rugby Pacific"],["Rugby","rugby/244293","Rugby Championship"]];
 let lg=LG[0][1];
-const api=p=>WORKER?WORKER+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
+const api=p=>WORKER?WORKER.replace(/\/+$/,"")+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
 const jget=async p=>{const r=await fetch(api(p));if(!r.ok)throw new Error("HTTP "+r.status);return r.json()};
 const ymd=d=>d.toISOString().slice(0,10).replace(/-/g,"");
 const E=x=>esc(String(x==null?"":x));
@@ -170,6 +179,19 @@ async function detail(id){
  }catch(x){d.textContent="Could not load this match ("+x.message+")."}
 }
 document.addEventListener("click",e=>{const g=e.target.closest("[data-g]");if(g)detail(g.dataset.g)});
+
+let LAB=null,LS="xgd";
+const LC=[["team","Team"],["matches","M"],["xg","xG"],["xga","xGA"],["xgd","xG diff"],["goals","Goals"],["shots","Shots"],["six_yard","Six-yard"],["box","Box"],["outside_box","Outside box"],["long_range","Long range"],["ppda","PPDA"],["pressures","Pressures"],["high_pressures","High pressures"],["xt","xT"]];
+function drawLab(){
+ const r=LAB.teams.map(t=>({...t,xgd:+(t.xg-t.xga).toFixed(2)})).sort((a,b)=>LS=="team"?a.team.localeCompare(b.team):LS=="ppda"?(a.ppda??99)-(b.ppda??99):b[LS]-a[LS]);
+ document.getElementById("lb").innerHTML=`<p class="tag">${E(LAB.competition)} ${E(LAB.season)}, ${LAB.matches} matches. Click a column to sort. Lower PPDA means more pressing. xT is learned from this sample, so treat it as a demo.</p><div style="overflow-x:auto"><table><tr>`+LC.map(c=>`<th><button class="th" data-s="${c[0]}">${c[1]}${LS==c[0]?" *":""}</button></th>`).join("")+"</tr>"+r.map(t=>"<tr>"+LC.map(c=>`<td>${E(t[c[0]])}</td>`).join("")+"</tr>").join("")+`</table></div><p class="tag">Data: ${E(LAB.source)}. Credit StatsBomb wherever you show it.</p>`;
+}
+async function lab(){
+ document.getElementById("out").innerHTML='<section style="--c:var(--dl);grid-column:1/-1"><h2>Football data lab</h2><div id="lb">Loading...</div></section>';
+ try{if(!LAB){const r=await fetch("data/football.json");if(!r.ok)throw new Error("HTTP "+r.status);LAB=await r.json()}drawLab()}
+ catch(x){document.getElementById("lb").textContent="Could not load data/football.json ("+x.message+"). Upload the data folder to the repo."}
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-s]");if(b&&LAB){LS=b.dataset.s;drawLab()}});
 head();body();
 </script>
 </body>
