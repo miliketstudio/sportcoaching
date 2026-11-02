@@ -62,6 +62,11 @@ td:first-child,th:first-child{text-align:left}
 .bt{font-weight:700;color:var(--fb)}
 section ul{margin:4px 0 8px;padding-left:20px}section li{margin:3px 0}
 details{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 16px}summary{cursor:pointer;font-weight:500}
+
+.cols3{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:8px}.num{font:700 34px "Barlow Condensed",sans-serif;line-height:1}
+.stk{display:flex;height:20px;border-radius:5px;overflow:hidden;background:var(--line);margin-bottom:12px}.stk i{display:block}
+.lg{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:13px}.lg i{width:12px;height:12px;border-radius:3px;opacity:.7}
+.note{background:var(--bg);border-left:4px solid var(--dl);padding:8px 12px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -153,7 +158,7 @@ document.addEventListener("change",e=>{const i=e.target.dataset.i;if(i){S[i]=e.t
 
 const WORKER="";/* paste your Cloudflare Worker URL here after deploying worker.js */
 const LG=[["Basketball","basketball/nba","NBA"],["Basketball","basketball/wnba","WNBA"],["Football","soccer/eng.1","Premier League"],["Football","soccer/esp.1","La Liga"],["Football","soccer/ger.1","Bundesliga"],["Football","soccer/ita.1","Serie A"],["Football","soccer/fra.1","Ligue 1"],["Football","soccer/usa.1","MLS"],["Football","soccer/uefa.champions","Champions League"],["Rugby","rugby/267979","Premiership"],["Rugby","rugby/270557","United Rugby Championship"],["Rugby","rugby/270559","Top 14"],["Rugby","rugby/180659","Six Nations"],["Rugby","rugby/242041","Super Rugby Pacific"],["Rugby","rugby/244293","Rugby Championship"]];
-let lg=LG[0][1];
+let lg=LG[0][1],RG="f",CTX=null;
 const api=p=>WORKER?WORKER.replace(/\/+$/,"")+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
 const jget=async p=>{const r=await fetch(api(p));if(!r.ok){let t="";try{t=(await r.text()).slice(0,100)}catch(e){}throw new Error("HTTP "+r.status+" "+t)}return r.json()};
 const ymd=d=>d.toISOString().slice(0,10).replace(/-/g,"");
@@ -161,14 +166,15 @@ const E=x=>esc(String(x==null?"":x));
 const sec=(t,b)=>`<section style="--c:var(--gm)"><h2>${t}</h2>${b}</section>`;
 async function games(){
  const o=document.getElementById("out");
- o.innerHTML=`<section style="--c:var(--gm);grid-column:1/-1"><h2>Upcoming games</h2><select id="lg" aria-label="League">`+LG.map(l=>`<option value="${l[1]}"${l[1]==lg?" selected":""}>${l[0]}: ${l[2]}</option>`).join("")+`</select> <span class="tag">Next 14 days. Pick a game to see both teams.</span><div id="gl" class="gl">Loading games...</div></section><div id="gd" style="grid-column:1/-1"></div>`;
+ o.innerHTML=`<section style="--c:var(--gm);grid-column:1/-1"><h2>Upcoming games</h2><select id="lg" aria-label="League">`+LG.map(l=>`<option value="${l[1]}"${l[1]==lg?" selected":""}>${l[0]}: ${l[2]}</option>`).join("")+`</select> <select id="rg" aria-label="Date range"><option value="f">Next 14 days</option><option value="p">Last 14 days (test the model)</option></select> <span class="tag">Pick a game.</span><div id="gl" class="gl">Loading games...</div></section><div id="gd" style="grid-column:1/-1"></div>`;
  document.getElementById("lg").onchange=e=>{lg=e.target.value;games()};
+ const rs=document.getElementById("rg");rs.value=RG;rs.onchange=e=>{RG=e.target.value;games()};
  const gl=document.getElementById("gl");
  try{
-  const rg=ymd(new Date())+"-"+ymd(new Date(Date.now()+12096e5));let j,er;
+  const t0=Date.now(),rg=RG=="p"?ymd(new Date(t0-12096e5))+"-"+ymd(new Date(t0)):ymd(new Date(t0))+"-"+ymd(new Date(t0+12096e5));let j,er;
   for(const qs of ["?dates="+rg+"&limit=100","?dates="+rg,""]){try{j=await jget(lg+"/scoreboard"+qs);break}catch(x){er=x}}
   if(!j)throw er;
-  const ev=(j.events||[]).sort((a,b)=>a.date<b.date?-1:1);
+  const ev=(j.events||[]).sort((a,b)=>(a.date<b.date?-1:1)*(RG=="p"?-1:1));
   gl.innerHTML=ev.length?ev.map(e=>{const c=e.competitions[0].competitors,h=c.find(x=>x.homeAway=="home")||c[0],a=c.find(x=>x.homeAway=="away")||c[1];
    return`<button class="g" data-g="${E(e.id)}"><span><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
  }catch(x){gl.textContent="Could not load games ("+x.message+"). If this keeps happening, deploy worker.js and paste its URL into WORKER."}
@@ -179,12 +185,12 @@ function res(e,id){const c=(e.competitions||[])[0],tp=((c&&c.status)||e.status||
  const me=c.competitors.find(x=>tid(x)==String(id)),op=c.competitors.find(x=>x!==me);if(!me||!op)return null;
  const f=sc(me),a=sc(op);if(isNaN(f)||isNaN(a))return null;
  return{d:e.date,f,a,h:me.homeAway=="home",o:tid(op),on:(op.team||{}).displayName||"",r:f>a?"W":f<a?"L":"D"}}
-async function sched(id){const y=new Date().getFullYear(),m={};
- await Promise.all([y+1,y,y-1,y-2,y-3,y-4,y-5].map(async s=>{try{((await jget(lg+"/teams/"+id+"/schedule?season="+s)).events||[]).forEach(e=>m[e.id]=e)}catch(x){}}));
+async function sched(id,k=9){const y=new Date().getFullYear(),m={};
+ await Promise.all([y+1,y,y-1,y-2,y-3,y-4,y-5,y-6,y-7].slice(0,k).map(async s=>{try{((await jget(lg+"/teams/"+id+"/schedule?season="+s)).events||[]).forEach(e=>m[e.id]=e)}catch(x){}}));
  return Object.values(m).map(e=>res(e,id)).filter(Boolean).sort((a,b)=>a.d<b.d?1:-1)}
 const avg=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length,n1=x=>x.toFixed(1);
 const pt=a=>a.length?a.reduce((s,x)=>s+(x.r=="W"?3:x.r=="D"?1:0),0)/a.length:null;
-function prof(g){const L=g.slice(0,15);if(L.length<3)return null;return{n:L.length,sf:avg(L,"f"),sa:avg(L,"a"),ppg:pt(L),f5:pt(L.slice(0,5)),hp:pt(L.filter(x=>x.h)),ap:pt(L.filter(x=>!x.h)),wp:100*L.filter(x=>x.r=="W").length/L.length}}
+function prof(g){const L=g.slice(0,NG);if(L.length<3)return null;return{n:L.length,sf:avg(L,"f"),sa:avg(L,"a"),ppg:pt(L),f5:pt(L.slice(0,5)),hp:pt(L.filter(x=>x.h)),ap:pt(L.filter(x=>!x.h)),wp:100*L.filter(x=>x.r=="W").length/L.length}}
 const rel=(x,y)=>(x-y)/((x+y)/2||1);
 function ins(P,Q,nm,home,h2){const s=[],w=[],o=nm[1];
  const a=rel(P.sf,Q.sa);if(a>.06)s.push(`Attack: scores ${n1(P.sf)} a game and ${o} concedes ${n1(Q.sa)}, so there should be chances`);else if(a<-.06)w.push(`Attack: scores ${n1(P.sf)} a game but ${o} concedes only ${n1(Q.sa)}, a tough defence to break`);
@@ -198,26 +204,32 @@ const ul=a=>a.length?`<ul>${a.map(x=>`<li>${E(x)}</li>`).join("")}</ul>`:'<p cla
 const chip=x=>`<span class="ch ${x.r}" title="${E(x.on)}">${x.r} ${x.f}-${x.a}</span>`;
 const row=(l,x,y,hi)=>x==null||y==null?"":`<tr><td>${l}</td><td class="${(hi?x>y:x<y)?"bt":""}">${n1(x)}</td><td class="${(hi?y>x:y<x)?"bt":""}">${n1(y)}</td></tr>`;
 async function detail(id){
- const d=document.getElementById("gd");d.innerHTML='<p class="tag">Loading the match and 5 years of history...</p>';d.scrollIntoView({behavior:"smooth"});
+ const d=document.getElementById("gd");d.innerHTML='<p class="tag">Loading the match and up to 8 seasons of history...</p>';d.scrollIntoView({behavior:"smooth"});
  try{
   const s=await jget(lg+"/summary?event="+id),cs=s.header.competitions[0].competitors,h=cs.find(c=>c.homeAway=="home")||cs[0],a=cs.find(c=>c!==h);
-  const [gh,ga,rh,ra]=await Promise.all([sched(h.team.id),sched(a.team.id),...[h,a].map(c=>jget(lg+"/teams/"+c.team.id+"/roster").catch(()=>({})))]);
-  const H=h.team.displayName,A=a.team.displayName,ph=prof(gh),pa=prof(ga),cut=Date.now()-5*365.25*864e5;
+  let [gh,ga,rh,ra]=await Promise.all([sched(h.team.id),sched(a.team.id),...[h,a].map(c=>jget(lg+"/teams/"+c.team.id+"/roster").catch(()=>({})))]);
+  const c0=s.header.competitions[0],done=!!(c0.status&&c0.status.type&&c0.status.type.completed);
+  if(done){gh=gh.filter(x=>new Date(x.d)<new Date(c0.date));ga=ga.filter(x=>new Date(x.d)<new Date(c0.date))}
+  const H=h.team.displayName,A=a.team.displayName,ph=prof(gh),pa=prof(ga),cut=Date.now()-8*365.25*864e5;
   const m=gh.filter(x=>x.o==a.team.id&&new Date(x.d)>=cut),tl=g=>({n:g.length,w:g.filter(x=>x.r=="W").length,l:g.filter(x=>x.r=="L").length,d:g.filter(x=>x.r=="D").length});
   const t=tl(m),tA={n:t.n,w:t.l,l:t.w,d:t.d},ok=ph&&pa;
   const [sH,wH]=ok?ins(ph,pa,[H,A],true,t):[[],[]],[sA,wA]=ok?ins(pa,ph,[A,H],false,tA):[[],[]];
   let fc='<p class="tag">Not enough completed games found for these teams to build a forecast.</p>';
   if(ok){const eh=(ph.sf+pa.sa)/2,ea=(pa.sf+ph.sa)/2,adj=(eh+ea)/2*.03,x=eh+adj-ea,r=Math.abs(x)/((eh+ea)/2);
    fc=`<div class="big">${r<.04?"Too close to call":(r<.1?"Slight lean: ":"Lean: ")+E(x>0?H:A)}</div><p>Projected score ${n1(eh+adj)} to ${n1(ea)} (${E(H)} at home). Built from each team's last ${ph.n} and ${pa.n} results, how much the opponent scores and concedes, and a small home edge. It uses results only, so treat it as a starting point and add the Data Lab numbers when available.</p>`}
-  const h2=m.length?`<p><b>${E(H)}</b> ${t.w} wins, ${t.d} draws, <b>${E(A)}</b> ${t.l} wins in ${t.n} meetings. Average total ${n1(avg(m,"f")+avg(m,"a"))}, average margin ${n1(avg(m,"f")-avg(m,"a"))} for ${E(H)}.</p><div class="sc"><table><tr><th>Date</th><th>Host</th><th>${E(H)} score</th><th>Result</th></tr>`+m.map(x=>`<tr><td>${new Date(x.d).toLocaleDateString()}</td><td>${E(x.h?H:A)}</td><td>${x.f}-${x.a}</td><td>${x.r}</td></tr>`).join("")+"</table></div>":'<p class="tag">No meetings in the last 5 years were found in ESPN schedule data for this competition. Cup games and other leagues may be missing.</p>';
+  const h2=m.length?`<p><b>${E(H)}</b> ${t.w} wins, ${t.d} draws, <b>${E(A)}</b> ${t.l} wins in ${t.n} meetings. Average total ${n1(avg(m,"f")+avg(m,"a"))}, average margin ${n1(avg(m,"f")-avg(m,"a"))} for ${E(H)}.</p><div class="sc"><table><tr><th>Date</th><th>Host</th><th>${E(H)} score</th><th>Result</th></tr>`+m.map(x=>`<tr><td>${new Date(x.d).toLocaleDateString()}</td><td>${E(x.h?H:A)}</td><td>${x.f}-${x.a}</td><td>${x.r}</td></tr>`).join("")+"</table></div>":'<p class="tag">No meetings in the last 8 years were found in ESPN schedule data for this competition. Cup games and other leagues may be missing.</p>';
   const form=g=>g.length?`<div class="chs">${g.slice(0,10).map(chip).join("")}</div>`:'<p class="tag">No completed games found.</p>';
   const cmp=ok?`<div class="sc"><table><tr><th>Last ${Math.min(ph.n,pa.n)}+ games</th><th>${E(H)}</th><th>${E(A)}</th></tr>`+row("Scored per game",ph.sf,pa.sf,1)+row("Conceded per game",ph.sa,pa.sa,0)+row("Points per game",ph.ppg,pa.ppg,1)+row("Points per game, last 5",ph.f5,pa.f5,1)+row("Points per game, at home / away",ph.hp,pa.ap,1)+row("Win rate %",ph.wp,pa.wp,1)+"</table></div><p class='tag'>Points: win 3, draw 1, loss 0. Bold marks the better side.</p>":"";
   const by=(arr,c)=>(arr||[]).find(x=>x.team&&x.team.id==c.team.id)||{};
   const ex=(c,r)=>{const ld=by(s.leaders,c).leaders||[],inj=by(s.injuries,c).injuries||[],bx=by(s.boxscore&&s.boxscore.teams,c).statistics||[],at=(r.athletes||[]).flatMap(x=>x.items||[x]);
    return`<div><h3>${E(c.team.displayName)}</h3>`+ld.map(x=>{const l=(x.leaders||[])[0]||{};return`<div>${E(x.displayName)}: ${E((l.athlete||{}).displayName)} ${E(l.displayValue)}</div>`}).join("")+(inj.length?"<h3>Injuries</h3>"+inj.map(x=>`<div>${E((x.athlete||{}).displayName)}, ${E(x.status)}</div>`).join(""):"")+(bx.length?"<h3>Match stats</h3>"+bx.map(x=>`<div>${E(x.label)}: <b>${E(x.displayValue)}</b></div>`).join(""):"")+(at.length?`<h3>Squad (${at.length})</h3><div class="sq">`+at.map(p=>`<a href="${E(((p.links||[])[0]||{}).href||"#")}" target="_blank" rel="noopener">${E(p.displayName||p.fullName)}</a>`).join("")+"</div>":"")+"</div>"};
+  const lowSp=lg.startsWith("soccer/"),dr=lowSp||lg.startsWith("rugby/"),Hh=hadv(gh,ga),Ph=pf(gh,Hh),Pa=pf(ga,Hh);
+  let simSec=sec("Simulation",'<p class="tag">Not enough completed games to simulate (needs at least 5 for each team).</p>');
+  if(Ph&&Pa){const R=simulate(matchup(Ph,Pa,Hh),10000,lowSp,dr);CTX={gh,ga,H,A,ids:[h.team.id,a.team.id],lowSp,dr};
+   simSec=sec("Simulation: 10,000 games",simHTML(R,H,A,lowSp,dr,sH,sA,done?{a:+h.score,b:+a.score}:null,Ph,Pa))}
   d.innerHTML=`<div class="mh"><h2>${E(H)} vs ${E(A)}</h2><span class="tag">${new Date(s.header.competitions[0].date).toLocaleString()}</span></div>`+
-   sec("Forecast",fc)+`<div class="cols">`+sec(E(H)+" <small>home</small>","<h3>Strengths against "+E(A)+"</h3>"+ul(sH)+"<h3>Weaknesses</h3>"+ul(wH))+sec(E(A)+" <small>away</small>","<h3>Strengths against "+E(H)+"</h3>"+ul(sA)+"<h3>Weaknesses</h3>"+ul(wA))+"</div>"+
-   sec("Head-to-head, last 5 years",h2)+`<div class="cols">`+sec(E(H)+": last 10",form(gh))+sec(E(A)+": last 10",form(ga))+"</div>"+(cmp?sec("Side by side",cmp):"")+
+   simSec+`<div class="cols">`+sec(E(H)+" <small>home</small>","<h3>Strengths against "+E(A)+"</h3>"+ul(sH)+"<h3>Weaknesses</h3>"+ul(wH))+sec(E(A)+" <small>away</small>","<h3>Strengths against "+E(H)+"</h3>"+ul(sA)+"<h3>Weaknesses</h3>"+ul(wA))+"</div>"+
+   sec("Head-to-head, every meeting found (up to 8 years)",h2)+`<div class="cols">`+sec(E(H)+": last 10",form(gh))+sec(E(A)+": last 10",form(ga))+"</div>"+(cmp?sec("Side by side",cmp):"")+
    `<details><summary>Leaders, injuries, match stats and squads</summary><div class="cols">${ex(h,rh)}${ex(a,ra)}</div></details>`;
  }catch(x){d.textContent="Could not load this match ("+x.message+")."}
 }
@@ -235,6 +247,76 @@ async function lab(){
  catch(x){document.getElementById("lb").textContent="Could not load data/football.json ("+x.message+"). Upload the data folder to the repo."}
 }
 document.addEventListener("click",e=>{const b=e.target.closest("[data-s]");if(b&&LAB){LS=b.dataset.s;drawLab()}});
+
+const NG=40,HL=12;
+function nrm(){let u=0;while(!u)u=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.283185307*Math.random())}
+function pois(l){if(l>30)return Math.max(0,Math.round(l+Math.sqrt(l)*nrm()));const L=Math.exp(-l);let k=0,p=1;do{k++;p*=Math.random()}while(p>L);return k-1}
+function hadv(ga,gb){const f=a=>{const x=a.slice(0,NG),h=x.filter(y=>y.h),v=x.filter(y=>!y.h);return h.length>=4&&v.length>=4?(avg(h,"f")-avg(h,"a")-avg(v,"f")+avg(v,"a"))/2:null};const r=[f(ga),f(gb)].filter(x=>x!=null);return r.length?.7*r.reduce((s,x)=>s+x,0)/r.length:0}
+function pf(g,H){const L=g.slice(0,NG);if(L.length<5)return null;const w=L.map((x,i)=>Math.pow(.5,i/HL)),F=L.map(x=>x.f-(x.h?1:-1)*H/2),A=L.map(x=>x.a+(x.h?1:-1)*H/2);let W=0,W2=0,sf=0,sa=0,vf=0,va=0;
+ w.forEach((v,i)=>{W+=v;W2+=v*v;sf+=v*F[i];sa+=v*A[i]});sf/=W;sa/=W;w.forEach((v,i)=>{vf+=v*(F[i]-sf)**2;va+=v*(A[i]-sa)**2});return{n:L.length,ne:W*W/W2,sf,sa,vf:vf/W,va:va/W}}
+function matchup(P,Q,H){return{mh:(P.sf+Q.sa)/2+H/2,ma:(Q.sf+P.sa)/2-H/2,seh:Math.sqrt(P.vf/P.ne+Q.va/Q.ne)/2,sea:Math.sqrt(Q.vf/Q.ne+P.va/P.ne)/2,sdh:Math.sqrt((P.vf+Q.va)/2),sda:Math.sqrt((Q.vf+P.va)/2)}}
+function simulate(M,N,low,dr){const hs=new Array(N),as=new Array(N);
+ for(let i=0;i<N;i++){const lh=Math.max(.05,M.mh+M.seh*nrm()),la=Math.max(.05,M.ma+M.sea*nrm());
+  if(low){hs[i]=pois(lh);as[i]=pois(la)}else{hs[i]=Math.max(0,Math.round(lh+M.sdh*nrm()));as[i]=Math.max(0,Math.round(la+M.sda*nrm()))}
+  if(!dr&&hs[i]==as[i]){Math.random()<.5?hs[i]++:as[i]++}}
+ return{hs,as}}
+const qt=(s,p)=>s[Math.min(s.length-1,Math.floor(p*s.length))];
+function st(a){const s=Float64Array.from(a).sort();return{hi:s[s.length-1],lo:s[0],av:a.reduce((x,y)=>x+y,0)/a.length,md:qt(s,.5),p10:qt(s,.1),p90:qt(s,.9)}}
+function corr(x,y){const n=x.length;let mx=0,my=0,a=0,b=0,c=0;for(let i=0;i<n;i++){mx+=x[i];my+=y[i]}mx/=n;my/=n;for(let i=0;i<n;i++){const u=x[i]-mx,v=y[i]-my;a+=u*v;b+=u*u;c+=v*v}return a/Math.sqrt(b*c||1)}
+function hist(S,cols,nm){const mn=Math.min(...S.map(a=>a.reduce((x,y)=>x<y?x:y))),mx=Math.max(...S.map(a=>a.reduce((x,y)=>x>y?x:y))),B=Math.min(30,mx-mn+1),bw=(mx-mn+1)/B,N=S[0].length;
+ const C=S.map(a=>{const c=new Array(B).fill(0);a.forEach(v=>c[Math.min(B-1,Math.floor((v-mn)/bw))]++);return c}),top=Math.max(...C.flat())/N;let g="";
+ C.forEach((c,k)=>c.forEach((v,i)=>{const hh=100*v/N/top;g+=`<rect x="${10+i*300/B}" y="${110-hh}" width="${Math.max(1,300/B-1)}" height="${hh}" style="fill:${cols[k]};opacity:.6"/>`}));
+ return`<svg viewBox="0 0 320 135" role="img" aria-label="${E(nm.join(" and "))} distribution" style="width:100%;max-width:440px;color:var(--ink)">${g}<line x1="10" y1="110" x2="310" y2="110" stroke="currentColor"/><text x="10" y="127" font-size="11" fill="currentColor">${mn}</text><text x="310" y="127" font-size="11" text-anchor="end" fill="currentColor">${mx}</text></svg><div>`+nm.map((n,i)=>`<span class="lg"><i style="background:${cols[i]}"></i>${E(n)}</span>`).join("")+"</div>"}
+function simHTML(R,H,A,low,dr,sH,sA,act,Ph,Pa){
+ const N=R.hs.length,mg=R.hs.map((v,i)=>v-R.as[i]);let w=0,d=0,l=0;mg.forEach(m=>m>0?w++:m<0?l++:d++);
+ const SH=st(R.hs),SA=st(R.as),SM=st(mg),pc=x=>(100*x/N).toFixed(1)+"%",nf=x=>x.toLocaleString(),cl=low?1:Math.max(2,Math.round((SH.av+SA.av)*.03));
+ const cond=f=>{let n=0,a=0,b=0,c=0;mg.forEach((m,i)=>{if(f(m)){n++;a+=R.hs[i];b+=R.as[i];c+=Math.abs(m)<=cl}});return n?{n,a:a/n,b:b/n,c:100*c/n}:null};
+ const cw=cond(m=>m>0),cL=cond(m=>m<0),cd=cond(m=>m==0),r1=corr(R.hs,mg),r2=-corr(R.as,mg);
+ const hf=(sc)=>low?(()=>{let k=0;for(let j=0;j<sc;j++)k+=Math.random()<.5;return k})():Math.max(0,Math.min(sc,Math.round(sc*(.5+.04*nrm()))));
+ const fh=R.hs.map(hf),fa=R.as.map(hf);let lH=0,lA=0,tI=0,cbH=0,cbA=0,best=0,bd=1e9;
+ mg.forEach((m,i)=>{const x=fh[i]-fa[i];x>0?lH++:x<0?lA++:tI++;if(x<0&&m>0)cbH++;if(x>0&&m<0)cbA++;const q=(R.hs[i]-SH.md)**2+(R.as[i]-SA.md)**2;if(q<bd){bd=q;best=i}});
+ const fav=w>=l?H:A,pf_=Math.max(w,l)/N,close=mg.filter(m=>Math.abs(m)<=cl).length,big=mg.filter(m=>Math.abs(m)>cl*3).length;
+ const line=(t,c,p)=>c?`<li><b>${E(t)}</b> wins ${nf(c.n)} of ${nf(N)} simulations (${pc(c.n)}), averaging ${n1(c.a)} to ${n1(c.b)}. ${c.c.toFixed(0)}% of those wins are close (within ${cl}).</li>`:"";
+ const row=(t,S)=>`<tr><td>${E(t)}</td><td>${S.hi}</td><td>${S.lo}</td><td>${n1(S.av)}</td><td>${S.md}</td><td>${S.p10} to ${S.p90}</td></tr>`;
+ const bar=(c,v)=>`<i style="width:${100*v/N}%;background:${c}" title="${nf(v)}"></i>`;
+ let out=`<div class="cols3"><div><div class="num">${nf(w)}</div>${E(H)} wins (${pc(w)})</div>`+(dr?`<div><div class="num">${nf(d)}</div>Draws (${pc(d)})</div>`:"")+`<div><div class="num">${nf(l)}</div>${E(A)} wins (${pc(l)})</div></div><div class="stk">${bar("var(--bb)",w)}${bar("var(--drw)",d)}${bar("var(--sh)",l)}</div>`;
+ if(act){const pr=100*mg.filter(m=>m<act.a-act.b).length/N;out+=`<p class="note"><b>Actual result:</b> ${E(H)} ${act.a}, ${E(A)} ${act.b}. The simulation gave ${E(act.a>act.b?H:act.a<act.b?A:"a draw")} ${act.a==act.b?"":"a "+pc(act.a>act.b?w:l)+" chance"}; the real margin was larger than in ${pr.toFixed(0)}% of simulations, so ${pr>=10&&pr<=90?"it fell inside the normal range":"it was an unusual result"}. This game was left out of the data used for the simulation.</p>`}
+ out+=`<div class="cols"><div><h3>Score distribution</h3>${hist([R.hs,R.as],["var(--bb)","var(--sh)"],[H,A])}</div><div><h3>Margin (${E(H)} minus ${E(A)})</h3>${hist([mg],["var(--fl)"],["Margin"])}</div></div>`;
+ out+=`<h3>Scoreboard across 10,000 games</h3><div class="sc"><table><tr><th>Team</th><th>Highest</th><th>Lowest</th><th>Average</th><th>Median</th><th>Middle 80%</th></tr>${row(H,SH)}${row(A,SA)}${row("Margin",SM)}</table></div>`;
+ out+=`<h3>Why wins and losses happen</h3><ul>${line(H,cw)}${line(A,cL)}${cd&&dr?`<li><b>Draws</b>: ${nf(cd.n)} simulations, averaging ${n1(cd.a)} each.</li>`:""}<li>The result swings more on <b>${E(r1>=r2?H:A)}</b>'s scoring (correlation ${Math.max(r1,r2).toFixed(2)} vs ${Math.min(r1,r2).toFixed(2)}).</li>${sH.length?`<li>${E(H)}: ${E(sH.slice(0,2).join("; "))}.</li>`:""}${sA.length?`<li>${E(A)}: ${E(sA.slice(0,2).join("; "))}.</li>`:""}</ul>`;
+ out+=`<h3>What happened in a typical game</h3><p>${E(H)} ${R.hs[best]}, ${E(A)} ${R.as[best]} (the simulation closest to both median scores). At half it was ${fh[best]} to ${fa[best]}. Across all runs ${E(H)} led at half ${pc(lH)} of the time, ${E(A)} ${pc(lA)}, level ${pc(tI)}. Comebacks after trailing at half: ${E(H)} ${pc(cbH)}, ${E(A)} ${pc(cbA)}. Half-time scores assume scoring is split evenly between halves.</p>`;
+ out+=`<h3>What to expect</h3><ul><li>${pf_<.56?"Close to a coin flip":E(fav)+" is favoured"} (${pc(Math.max(w,l))} to win outright${dr?`, ${pc(d)} draw`:""}).</li><li>Most likely range: ${E(H)} ${SH.p10} to ${SH.p90}, ${E(A)} ${SA.p10} to ${SA.p90} (80% of simulations).</li><li>Average margin: ${E(SM.av>=0?H:A)} by ${Math.abs(SM.av).toFixed(1)}. Median ${SM.md>=0?"+":""}${SM.md} for ${E(H)}.</li><li>Close game (within ${cl}): ${pc(close)}. Big win (more than ${cl*3}): ${pc(big)}. Upset chance: ${pc(Math.min(w,l))}.</li></ul>`;
+ out+=`<p class="tag">Each run draws both teams' scoring rates from their last ${Math.min(Ph.n,Pa.n)}+ games (newer games count more, home edge removed from the history then added back), adding uncertainty about those rates. It does not know about injuries, schedule strength or tactics. Player-level simulation is not included yet.</p><div id="bt"><button class="g" data-bt="1"><b>Test the accuracy on past games</b></button></div>`;
+ return out}
+async function backtest(){
+ const C=CTX,o=document.getElementById("bt");o.innerHTML='<p class="tag">Loading opponent histories and replaying past games. This can take up to a minute...</p>';
+ try{
+  const cs=[],seen={},OG={};
+  [[C.gh,C.ids[0]],[C.ga,C.ids[1]]].forEach(([g,id])=>g.slice(0,25).forEach((x,i)=>{if(g.length-i<=8)return;const k=x.d+[id,x.o].sort().join();if(seen[k])return;seen[k]=1;cs.push({x,tr:g.slice(i+1)})}));
+  const ids=[...new Set(cs.map(c=>c.x.o))];
+  for(let i=0;i<ids.length;i+=5)await Promise.all(ids.slice(i,i+5).map(async id=>{OG[id]=id==C.ids[0]?C.gh:id==C.ids[1]?C.ga:await sched(id,3)}));
+  const rows=[],N=2000;
+  cs.forEach(c=>{const od=(OG[c.x.o]||[]).filter(g=>new Date(g.d)<new Date(c.x.d)),hg=c.x.h?c.tr:od,ag=c.x.h?od:c.tr,Hh=hadv(hg,ag),Ph=pf(hg,Hh),Pa=pf(ag,Hh);if(!Ph||!Pa)return;
+   const R=simulate(matchup(Ph,Pa,Hh),N,C.lowSp,C.dr);let w=0,d=0;R.hs.forEach((v,i)=>{v>R.as[i]?w++:v==R.as[i]&&d++});
+   const a=c.x.h?c.x.f:c.x.a,b=c.x.h?c.x.a:c.x.f,mg=R.hs.map((v,i)=>v-R.as[i]),A1=st(R.hs),B1=st(R.as),M1=st(mg);
+   rows.push({pw:w/N,pd:d/N,pl:1-(w+d)/N,res:a>b?"H":a<b?"A":"D",a,b,mg:a-b,em:M1.av,ih:[A1.p10,A1.p90],ia:[B1.p10,B1.p90],im:[M1.p10,M1.p90]})});
+  const n=rows.length;if(n<5)throw new Error("not enough past games with history");
+  let br=0,ok=0,dec=0,hw=0,mae=0,m0=0,cv=0,cm=0;
+  rows.forEach(r=>{br+=(r.pw-(r.res=="H"))**2+(r.pl-(r.res=="A"))**2+(C.dr?(r.pd-(r.res=="D"))**2:0);if(r.res!="D"){dec++;ok+=(r.pw>=r.pl)==(r.res=="H");hw+=r.res=="H"}
+   mae+=Math.abs(r.em-r.mg);m0+=Math.abs(r.mg);cv+=(r.a>=r.ih[0]&&r.a<=r.ih[1])+(r.b>=r.ia[0]&&r.b<=r.ia[1]);cm+=r.mg>=r.im[0]&&r.mg<=r.im[1]});
+  br/=n;const base=C.dr?2/3:.5,acc=ok/dec,moe=196*Math.sqrt(acc*(1-acc)/dec),bk=[0,1,2,3,4].map(i=>rows.filter(r=>Math.min(4,Math.floor(r.pw*5))==i)),
+   pts=bk.filter(b=>b.length).map(b=>({x:b.reduce((s,r)=>s+r.pw,0)/b.length,y:b.filter(r=>r.res=="H").length/b.length,n:b.length}));
+  const svg=`<svg viewBox="0 0 220 200" role="img" aria-label="Calibration chart" style="width:100%;max-width:300px;color:var(--ink)"><line x1="20" y1="180" x2="210" y2="10" stroke="currentColor" stroke-dasharray="4 3" opacity=".5"/><line x1="20" y1="180" x2="210" y2="180" stroke="currentColor"/><line x1="20" y1="180" x2="20" y2="10" stroke="currentColor"/>`+pts.map(p=>`<circle cx="${20+190*p.x}" cy="${180-170*p.y}" r="${3+2*Math.sqrt(p.n)}" style="fill:var(--dl);opacity:.7"/>`).join("")+`<text x="115" y="196" font-size="10" text-anchor="middle" fill="currentColor">Predicted home win chance</text><text x="8" y="95" font-size="10" fill="currentColor" transform="rotate(-90 8 95)" text-anchor="middle">Actual</text></svg>`;
+  o.innerHTML=`<h3>Accuracy on ${n} past games (out-of-sample)</h3><p class="tag">Every game was predicted using only games played before it. The settings (${NG}-game window, ${HL}-game half-life) were fixed before testing and not tuned on these results, so the model could not simply copy history.</p><div class="sc"><table><tr><th>Measure</th><th>Model</th><th>Reference</th></tr>`+
+   `<tr><td>Picks the winner (decided games)</td><td>${(100*acc).toFixed(0)}% (about plus or minus ${moe.toFixed(0)})</td><td>${(100*hw/dec).toFixed(0)}% always picking home, 50% coin flip</td></tr>`+
+   `<tr><td>Probability score (Brier, lower is better)</td><td>${br.toFixed(3)}</td><td>${base.toFixed(3)} for no skill</td></tr>`+
+   `<tr><td>Average error in the margin</td><td>${n1(mae/n)}</td><td>${n1(m0/n)} when always guessing a draw</td></tr>`+
+   `<tr><td>Team scores inside the middle 80%</td><td>${(100*cv/(2*n)).toFixed(0)}%</td><td>80% would be well calibrated</td></tr>`+
+   `<tr><td>Margin inside the middle 80%</td><td>${(100*cm/n).toFixed(0)}%</td><td>80%</td></tr></table></div>`+
+   `<p><b>${br<base-.01?"The model beats a no-skill guess on these games.":"The model does not clearly beat a no-skill guess on these games."}</b> Points close to the dashed line mean that when it says 70%, the home side really wins about 70% of the time. Bubble size is the number of games.</p>${svg}<p class="tag">Sports results are partly luck, so no model is perfectly accurate. Small samples are noisy: ${n} games can only show large gaps.</p>`;
+ }catch(x){o.innerHTML='<p class="tag">Could not run the test ('+E(x.message)+').</p>'}
+}
+document.addEventListener("click",e=>{if(e.target.closest("[data-bt]"))backtest()});
 head();body();
 </script>
 </body>
