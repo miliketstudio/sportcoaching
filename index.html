@@ -49,6 +49,19 @@ table{border-collapse:collapse;width:100%;font-size:14px}
 td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 td:first-child,th:first-child{text-align:left}
 .th{font:600 14px Barlow,sans-serif;background:none;border:0;color:var(--ink);cursor:pointer;padding:0}
+
+:root{--win:#2a8a4a;--loss:#c2413a;--drw:#7d868c}
+#gd{display:grid;gap:16px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:16px}
+.mh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.mh h2{font-size:30px;margin:0}
+.big{font:700 28px "Barlow Condensed",sans-serif;margin-bottom:4px}
+.chs{display:flex;flex-wrap:wrap;gap:6px}
+.ch{color:#fff;font-size:13px;padding:3px 8px;border-radius:5px;font-weight:500}
+.ch.W{background:var(--win)}.ch.L{background:var(--loss)}.ch.D{background:var(--drw)}
+.sc{overflow-x:auto}
+.bt{font-weight:700;color:var(--fb)}
+section ul{margin:4px 0 8px;padding-left:20px}section li{margin:3px 0}
+details{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:12px 16px}summary{cursor:pointer;font-weight:500}
 </style>
 </head>
 <body>
@@ -148,7 +161,7 @@ const E=x=>esc(String(x==null?"":x));
 const sec=(t,b)=>`<section style="--c:var(--gm)"><h2>${t}</h2>${b}</section>`;
 async function games(){
  const o=document.getElementById("out");
- o.innerHTML=`<section style="--c:var(--gm);grid-column:1/-1"><h2>Upcoming games</h2><select id="lg" aria-label="League">`+LG.map(l=>`<option value="${l[1]}"${l[1]==lg?" selected":""}>${l[0]}: ${l[2]}</option>`).join("")+`</select> <span class="tag">Next 14 days. Pick a game to see both teams.</span><div id="gl" class="gl">Loading games...</div></section><div id="gd" class="two" style="grid-column:1/-1"></div>`;
+ o.innerHTML=`<section style="--c:var(--gm);grid-column:1/-1"><h2>Upcoming games</h2><select id="lg" aria-label="League">`+LG.map(l=>`<option value="${l[1]}"${l[1]==lg?" selected":""}>${l[0]}: ${l[2]}</option>`).join("")+`</select> <span class="tag">Next 14 days. Pick a game to see both teams.</span><div id="gl" class="gl">Loading games...</div></section><div id="gd" style="grid-column:1/-1"></div>`;
  document.getElementById("lg").onchange=e=>{lg=e.target.value;games()};
  const gl=document.getElementById("gl");
  try{
@@ -160,24 +173,52 @@ async function games(){
    return`<button class="g" data-g="${E(e.id)}"><span><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
  }catch(x){gl.textContent="Could not load games ("+x.message+"). If this keeps happening, deploy worker.js and paste its URL into WORKER."}
 }
+const sc=c=>{const s=c.score,v=s&&typeof s=="object"?(s.value!=null?s.value:s.displayValue):s;return v==null||v===""?NaN:+v};
+const tid=c=>String(c.team&&c.team.id||c.id);
+function res(e,id){const c=(e.competitions||[])[0],tp=((c&&c.status)||e.status||{}).type;if(!c||!tp||!tp.completed)return null;
+ const me=c.competitors.find(x=>tid(x)==String(id)),op=c.competitors.find(x=>x!==me);if(!me||!op)return null;
+ const f=sc(me),a=sc(op);if(isNaN(f)||isNaN(a))return null;
+ return{d:e.date,f,a,h:me.homeAway=="home",o:tid(op),on:(op.team||{}).displayName||"",r:f>a?"W":f<a?"L":"D"}}
+async function sched(id){const y=new Date().getFullYear(),m={};
+ await Promise.all([y+1,y,y-1,y-2,y-3,y-4,y-5].map(async s=>{try{((await jget(lg+"/teams/"+id+"/schedule?season="+s)).events||[]).forEach(e=>m[e.id]=e)}catch(x){}}));
+ return Object.values(m).map(e=>res(e,id)).filter(Boolean).sort((a,b)=>a.d<b.d?1:-1)}
+const avg=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length,n1=x=>x.toFixed(1);
+const pt=a=>a.length?a.reduce((s,x)=>s+(x.r=="W"?3:x.r=="D"?1:0),0)/a.length:null;
+function prof(g){const L=g.slice(0,15);if(L.length<3)return null;return{n:L.length,sf:avg(L,"f"),sa:avg(L,"a"),ppg:pt(L),f5:pt(L.slice(0,5)),hp:pt(L.filter(x=>x.h)),ap:pt(L.filter(x=>!x.h)),wp:100*L.filter(x=>x.r=="W").length/L.length}}
+const rel=(x,y)=>(x-y)/((x+y)/2||1);
+function ins(P,Q,nm,home,h2){const s=[],w=[],o=nm[1];
+ const a=rel(P.sf,Q.sa);if(a>.06)s.push(`Attack: scores ${n1(P.sf)} a game and ${o} concedes ${n1(Q.sa)}, so there should be chances`);else if(a<-.06)w.push(`Attack: scores ${n1(P.sf)} a game but ${o} concedes only ${n1(Q.sa)}, a tough defence to break`);
+ const d=rel(P.sa,Q.sf);if(d<-.06)s.push(`Defence: concedes ${n1(P.sa)} a game against ${o}'s ${n1(Q.sf)} scored`);else if(d>.06)w.push(`Defence: concedes ${n1(P.sa)} a game and ${o} scores ${n1(Q.sf)}, a dangerous attack to face`);
+ if(P.f5-P.ppg>.5)s.push("Form: the last 5 are better than their recent average");else if(P.f5-P.ppg<-.5)w.push("Form: the last 5 are worse than their recent average");
+ const v=home?P.hp:P.ap;if(v!=null){if(v-P.ppg>.4)s.push(home?"Strong at home":"Travels well");else if(v-P.ppg<-.4)w.push(home?"Weaker than usual at home":"Struggles away from home")}
+ if(P.ppg-Q.ppg>.5)s.push("Better recent results than "+o);else if(Q.ppg-P.ppg>.5)w.push("Weaker recent results than "+o);
+ if(h2&&h2.n>=3){const r=h2.w/h2.n;if(r>=.65)s.push(`Has won ${h2.w} of the last ${h2.n} meetings`);else if(r<=.35)w.push(`Has won only ${h2.w} of the last ${h2.n} meetings`)}
+ return[s,w]}
+const ul=a=>a.length?`<ul>${a.map(x=>`<li>${E(x)}</li>`).join("")}</ul>`:'<p class="tag">Nothing stands out in the numbers.</p>';
+const chip=x=>`<span class="ch ${x.r}" title="${E(x.on)}">${x.r} ${x.f}-${x.a}</span>`;
+const row=(l,x,y,hi)=>x==null||y==null?"":`<tr><td>${l}</td><td class="${(hi?x>y:x<y)?"bt":""}">${n1(x)}</td><td class="${(hi?y>x:y<x)?"bt":""}">${n1(y)}</td></tr>`;
 async function detail(id){
- const d=document.getElementById("gd");d.innerHTML="Loading match...";d.scrollIntoView({behavior:"smooth"});
+ const d=document.getElementById("gd");d.innerHTML='<p class="tag">Loading the match and 5 years of history...</p>';d.scrollIntoView({behavior:"smooth"});
  try{
-  const s=await jget(lg+"/summary?event="+id),cs=s.header.competitions[0].competitors;
-  const tm=await Promise.all(cs.map(c=>jget(lg+"/teams/"+c.team.id).catch(()=>({}))));
-  const ro=await Promise.all(cs.map(c=>jget(lg+"/teams/"+c.team.id+"/roster").catch(()=>({}))));
-  const by=(a,i)=>(a||[]).find(t=>t.team&&t.team.id==cs[i].team.id)||{};
-  d.innerHTML=cs.map((c,i)=>{
-   const st=(((tm[i].team||{}).record||{}).items||[]).flatMap(x=>x.stats||[]).slice(0,16).map(x=>`<div>${E(x.name)}: <b>${E(x.value)}</b></div>`).join("");
-   const f5=by(s.lastFiveGames,i).events||[],ld=by(s.leaders,i).leaders||[],inj=by(s.injuries,i).injuries||[],bx=by(s.boxscore&&s.boxscore.teams,i).statistics||[];
-   const ath=(ro[i].athletes||[]).flatMap(a=>a.items||[a]);
-   return sec(E(c.team.displayName)+` <small>${E(c.homeAway)}</small>`,
-    (st?`<h3>Season record and stats</h3>${st}`:"")+
-    (f5.length?`<h3>Last 5</h3><div>${f5.map(x=>E(x.gameResult)).join(" ")}</div>`:"")+
-    (ld.length?`<h3>Leaders</h3>`+ld.map(x=>{const l=(x.leaders||[])[0]||{};return`<div>${E(x.displayName)}: ${E((l.athlete||{}).displayName)} ${E(l.displayValue)}</div>`}).join(""):"")+
-    (inj.length?`<h3>Injuries</h3>`+inj.map(x=>`<div>${E((x.athlete||{}).displayName)}, ${E(x.status)}</div>`).join(""):"")+
-    (bx.length?`<h3>Match stats</h3>`+bx.map(x=>`<div>${E(x.label)}: <b>${E(x.displayValue)}</b></div>`).join(""):"")+
-    (ath.length?`<h3>Squad (${ath.length})</h3><div class="sq">`+ath.map(p=>`<a href="${E(((p.links||[])[0]||{}).href||"#")}" target="_blank" rel="noopener">${E(p.displayName||p.fullName)}${p.position?` <span class="tag">${E(p.position.abbreviation)}</span>`:""}</a>`).join("")+"</div>":""))}).join("");
+  const s=await jget(lg+"/summary?event="+id),cs=s.header.competitions[0].competitors,h=cs.find(c=>c.homeAway=="home")||cs[0],a=cs.find(c=>c!==h);
+  const [gh,ga,rh,ra]=await Promise.all([sched(h.team.id),sched(a.team.id),...[h,a].map(c=>jget(lg+"/teams/"+c.team.id+"/roster").catch(()=>({})))]);
+  const H=h.team.displayName,A=a.team.displayName,ph=prof(gh),pa=prof(ga),cut=Date.now()-5*365.25*864e5;
+  const m=gh.filter(x=>x.o==a.team.id&&new Date(x.d)>=cut),tl=g=>({n:g.length,w:g.filter(x=>x.r=="W").length,l:g.filter(x=>x.r=="L").length,d:g.filter(x=>x.r=="D").length});
+  const t=tl(m),tA={n:t.n,w:t.l,l:t.w,d:t.d},ok=ph&&pa;
+  const [sH,wH]=ok?ins(ph,pa,[H,A],true,t):[[],[]],[sA,wA]=ok?ins(pa,ph,[A,H],false,tA):[[],[]];
+  let fc='<p class="tag">Not enough completed games found for these teams to build a forecast.</p>';
+  if(ok){const eh=(ph.sf+pa.sa)/2,ea=(pa.sf+ph.sa)/2,adj=(eh+ea)/2*.03,x=eh+adj-ea,r=Math.abs(x)/((eh+ea)/2);
+   fc=`<div class="big">${r<.04?"Too close to call":(r<.1?"Slight lean: ":"Lean: ")+E(x>0?H:A)}</div><p>Projected score ${n1(eh+adj)} to ${n1(ea)} (${E(H)} at home). Built from each team's last ${ph.n} and ${pa.n} results, how much the opponent scores and concedes, and a small home edge. It uses results only, so treat it as a starting point and add the Data Lab numbers when available.</p>`}
+  const h2=m.length?`<p><b>${E(H)}</b> ${t.w} wins, ${t.d} draws, <b>${E(A)}</b> ${t.l} wins in ${t.n} meetings. Average total ${n1(avg(m,"f")+avg(m,"a"))}, average margin ${n1(avg(m,"f")-avg(m,"a"))} for ${E(H)}.</p><div class="sc"><table><tr><th>Date</th><th>Host</th><th>${E(H)} score</th><th>Result</th></tr>`+m.map(x=>`<tr><td>${new Date(x.d).toLocaleDateString()}</td><td>${E(x.h?H:A)}</td><td>${x.f}-${x.a}</td><td>${x.r}</td></tr>`).join("")+"</table></div>":'<p class="tag">No meetings in the last 5 years were found in ESPN schedule data for this competition. Cup games and other leagues may be missing.</p>';
+  const form=g=>g.length?`<div class="chs">${g.slice(0,10).map(chip).join("")}</div>`:'<p class="tag">No completed games found.</p>';
+  const cmp=ok?`<div class="sc"><table><tr><th>Last ${Math.min(ph.n,pa.n)}+ games</th><th>${E(H)}</th><th>${E(A)}</th></tr>`+row("Scored per game",ph.sf,pa.sf,1)+row("Conceded per game",ph.sa,pa.sa,0)+row("Points per game",ph.ppg,pa.ppg,1)+row("Points per game, last 5",ph.f5,pa.f5,1)+row("Points per game, at home / away",ph.hp,pa.ap,1)+row("Win rate %",ph.wp,pa.wp,1)+"</table></div><p class='tag'>Points: win 3, draw 1, loss 0. Bold marks the better side.</p>":"";
+  const by=(arr,c)=>(arr||[]).find(x=>x.team&&x.team.id==c.team.id)||{};
+  const ex=(c,r)=>{const ld=by(s.leaders,c).leaders||[],inj=by(s.injuries,c).injuries||[],bx=by(s.boxscore&&s.boxscore.teams,c).statistics||[],at=(r.athletes||[]).flatMap(x=>x.items||[x]);
+   return`<div><h3>${E(c.team.displayName)}</h3>`+ld.map(x=>{const l=(x.leaders||[])[0]||{};return`<div>${E(x.displayName)}: ${E((l.athlete||{}).displayName)} ${E(l.displayValue)}</div>`}).join("")+(inj.length?"<h3>Injuries</h3>"+inj.map(x=>`<div>${E((x.athlete||{}).displayName)}, ${E(x.status)}</div>`).join(""):"")+(bx.length?"<h3>Match stats</h3>"+bx.map(x=>`<div>${E(x.label)}: <b>${E(x.displayValue)}</b></div>`).join(""):"")+(at.length?`<h3>Squad (${at.length})</h3><div class="sq">`+at.map(p=>`<a href="${E(((p.links||[])[0]||{}).href||"#")}" target="_blank" rel="noopener">${E(p.displayName||p.fullName)}</a>`).join("")+"</div>":"")+"</div>"};
+  d.innerHTML=`<div class="mh"><h2>${E(H)} vs ${E(A)}</h2><span class="tag">${new Date(s.header.competitions[0].date).toLocaleString()}</span></div>`+
+   sec("Forecast",fc)+`<div class="cols">`+sec(E(H)+" <small>home</small>","<h3>Strengths against "+E(A)+"</h3>"+ul(sH)+"<h3>Weaknesses</h3>"+ul(wH))+sec(E(A)+" <small>away</small>","<h3>Strengths against "+E(H)+"</h3>"+ul(sA)+"<h3>Weaknesses</h3>"+ul(wA))+"</div>"+
+   sec("Head-to-head, last 5 years",h2)+`<div class="cols">`+sec(E(H)+": last 10",form(gh))+sec(E(A)+": last 10",form(ga))+"</div>"+(cmp?sec("Side by side",cmp):"")+
+   `<details><summary>Leaders, injuries, match stats and squads</summary><div class="cols">${ex(h,rh)}${ex(a,ra)}</div></details>`;
  }catch(x){d.textContent="Could not load this match ("+x.message+")."}
 }
 document.addEventListener("click",e=>{const g=e.target.closest("[data-g]");if(g)detail(g.dataset.g)});
