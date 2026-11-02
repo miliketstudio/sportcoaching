@@ -138,11 +138,11 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b)
 document.addEventListener("input",e=>{if(e.target.id=="q"){q=e.target.value;head();body()}});
 document.addEventListener("change",e=>{const i=e.target.dataset.i;if(i){S[i]=e.target.checked;save();const l=e.target.closest("label");l.className=S[i]?"d":"";head()}});
 
-const WORKER="https://wandering-darkness-8f29.miliketstudio.workers.dev/";/* paste your Cloudflare Worker URL here after deploying worker.js */
+const WORKER="";/* paste your Cloudflare Worker URL here after deploying worker.js */
 const LG=[["Basketball","basketball/nba","NBA"],["Basketball","basketball/wnba","WNBA"],["Football","soccer/eng.1","Premier League"],["Football","soccer/esp.1","La Liga"],["Football","soccer/ger.1","Bundesliga"],["Football","soccer/ita.1","Serie A"],["Football","soccer/fra.1","Ligue 1"],["Football","soccer/usa.1","MLS"],["Football","soccer/uefa.champions","Champions League"],["Rugby","rugby/267979","Premiership"],["Rugby","rugby/270557","United Rugby Championship"],["Rugby","rugby/270559","Top 14"],["Rugby","rugby/180659","Six Nations"],["Rugby","rugby/242041","Super Rugby Pacific"],["Rugby","rugby/244293","Rugby Championship"]];
 let lg=LG[0][1];
 const api=p=>WORKER?WORKER.replace(/\/+$/,"")+"/s/"+p:"https://site.api.espn.com/apis/site/v2/sports/"+p;
-const jget=async p=>{const r=await fetch(api(p));if(!r.ok)throw new Error("HTTP "+r.status);return r.json()};
+const jget=async p=>{const r=await fetch(api(p));if(!r.ok){let t="";try{t=(await r.text()).slice(0,100)}catch(e){}throw new Error("HTTP "+r.status+" "+t)}return r.json()};
 const ymd=d=>d.toISOString().slice(0,10).replace(/-/g,"");
 const E=x=>esc(String(x==null?"":x));
 const sec=(t,b)=>`<section style="--c:var(--gm)"><h2>${t}</h2>${b}</section>`;
@@ -152,7 +152,9 @@ async function games(){
  document.getElementById("lg").onchange=e=>{lg=e.target.value;games()};
  const gl=document.getElementById("gl");
  try{
-  const j=await jget(lg+"/scoreboard?limit=100&dates="+ymd(new Date())+"-"+ymd(new Date(Date.now()+12096e5)));
+  const rg=ymd(new Date())+"-"+ymd(new Date(Date.now()+12096e5));let j,er;
+  for(const qs of ["?dates="+rg+"&limit=100","?dates="+rg,""]){try{j=await jget(lg+"/scoreboard"+qs);break}catch(x){er=x}}
+  if(!j)throw er;
   const ev=(j.events||[]).sort((a,b)=>a.date<b.date?-1:1);
   gl.innerHTML=ev.length?ev.map(e=>{const c=e.competitions[0].competitors,h=c.find(x=>x.homeAway=="home")||c[0],a=c.find(x=>x.homeAway=="away")||c[1];
    return`<button class="g" data-g="${E(e.id)}"><span><b>${E(h.team.displayName)}</b> vs <b>${E(a.team.displayName)}</b></span><span class="tag">${new Date(e.date).toLocaleString([],{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}, ${E(e.status.type.shortDetail)}</span></button>`}).join(""):"No games found in the next 14 days for this competition.";
